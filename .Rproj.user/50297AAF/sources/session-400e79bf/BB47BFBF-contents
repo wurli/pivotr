@@ -1,0 +1,13 @@
+
+
+get_code(
+  iris,
+  rows = ".value",
+  columns = "Species",
+  values = list(
+    list("Sepal.Width", "mean"),
+    list("Sepal.Length", "median")
+  )
+) |> 
+  parse(text = _) |> 
+  eval()
