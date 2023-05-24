@@ -2,7 +2,10 @@ pivotr_app <- function(x = NULL) {
   
   ui <- fluidPage(
     column(1),
-    column(8),
+    column(8,
+      verbatimTextOutput("code"),
+      tableOutput("data")
+    ),
     column(3,
       fluidRow(
         column(12,
@@ -16,7 +19,7 @@ pivotr_app <- function(x = NULL) {
             group_name = "opts",
             add_rank_list(
               "Filters",
-              "test1"
+              input_id = "filters"
             )
           )
         ),
@@ -25,8 +28,9 @@ pivotr_app <- function(x = NULL) {
             NULL,
             group_name = "opts",
             add_rank_list(
-              "Filters",
-              "test1"
+              "Columns",
+              input_id = "columns",
+              list(.value = "\U03A3 Value")
             )
           )
         )
@@ -37,8 +41,8 @@ pivotr_app <- function(x = NULL) {
             NULL,
             group_name = "opts",
             add_rank_list(
-              "Filters",
-              "test1"
+              "Rows",
+              input_id = "rows"
             )
           )
         ),
@@ -47,8 +51,14 @@ pivotr_app <- function(x = NULL) {
             NULL,
             group_name = "opts",
             add_rank_list(
-              "Filters",
-              "test1"
+              span(
+                "Values",
+                actionLink(
+                  "values_settings", icon("cog"),
+                  style = "float:right;padding-right:10px"
+                )
+              ),
+              input_id = "values"
             )
           )
         )
@@ -66,11 +76,45 @@ pivotr_app <- function(x = NULL) {
         add_rank_list(
           input_id = "fields",
           text = "PivotTable Fields",
-          labels = colnames(iris)
+          labels = iris |> 
+            imap(~ glue::glue("{.y}<{typeof(.x)}>"))
         )
       )
     )
+    
+    observeEvent(input$fields, {
+      output$test <- renderUI(
+        sortable::bucket_list(
+          "PivotTable Fields",
+          group_name = "opts",
+          add_rank_list(
+            input_id = "fields",
+            text = "PivotTable Fields",
+            labels = iris |> 
+              imap(~ glue::glue("{.y}<{typeof(.x)}>"))
+          )
+        )
+      )
+    })
+    
+    code <- reactive({
+      values <- map(input$values, ~ list(., "sum"))
       
+      get_code(
+        iris,
+        filters = NULL,
+        rows = input$rows,
+        columns = input$columns,
+        values = values
+      )
+    })
+    
+    output$code <- renderPrint(code())
+    output$data <- renderTable(eval(parse(text = code())))
+    
+    observeEvent(input$values_settings, {
+      showModal(modalDialog())
+    })
     
   }
   
