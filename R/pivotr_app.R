@@ -2,11 +2,11 @@ pivotr_app <- function(x = NULL) {
   
   ui <- fluidPage(
     column(1),
-    column(8,
+    column(7,
       verbatimTextOutput("code"),
       tableOutput("data")
     ),
-    column(3,
+    column(4,
       fluidRow(
         column(12,
           uiOutput("test")

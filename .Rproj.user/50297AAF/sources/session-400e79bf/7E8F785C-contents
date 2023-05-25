@@ -118,14 +118,14 @@ make_summary_exprs <- function(spec, use_function_names = NULL) {
   
   use_function_names <- use_function_names %||% length(unique(unlist(map(spec, 2)))) > 1
   
-  new_col_names <- if (!use_function_names) {
-    spec |> map(1) |> unlist(use.names = FALSE) |> unique() |> sort()
-  } else {
-    spec |> 
-      map(~ do.call(paste, c(sep = "_", expand.grid(.[[1]], .[[2]])))) |> 
-      unlist(use.names = FALSE) |> 
-      unique() 
-  }
+  new_col_names <- spec |> 
+    map(\(x) {
+      if (use_function_names) return(x[[1]])
+      do.call(paste, c(sep = "_", expand.grid(x[[1]], x[[2]])))
+    }) |> 
+    unlist(use.names = FALSE) |> 
+    unique() |> 
+    sort()
   
   expr_names <- map_chr(spec, \(x) {
     if (!all(lengths(x) == 1L)) {
