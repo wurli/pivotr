@@ -12,7 +12,7 @@
 #' @examples
 get_code <- function(x, filters = NULL, columns = ".value", rows = NULL, values = NULL) {
   
-  stopifnot(".value" %in% c(columns, rows))
+  # stopifnot(".value" %in% c(columns, rows))
   
   long_format <- ".value" %in% rows
   
@@ -23,7 +23,7 @@ get_code <- function(x, filters = NULL, columns = ".value", rows = NULL, values 
   filters <- filters %||% list(list(cols = NULL, values = NULL))
   values  <- values  %||% list(list(cols = NULL, funs = NULL))
   
-  df_name <- as_string(ensym(x))
+  df_name <- expr_deparse(enexpr(x))
   
   abort_cols_dont_exist(x, map(filters, 1), map(values, 1), grouping_cols)
   
@@ -37,7 +37,7 @@ get_code <- function(x, filters = NULL, columns = ".value", rows = NULL, values 
       {df_name} |>
         summarise({summary_exprs})
       ",
-      summary_exprs = construct_args(summary_exprs)
+      summary_exprs = construct_args(summary_exprs, always_linebreak = TRUE)
     )
   } else {
     glue(
@@ -46,10 +46,13 @@ get_code <- function(x, filters = NULL, columns = ".value", rows = NULL, values 
         summarise({summary_exprs}) |> 
         arrange({grouping_cols})
       ",
-      summary_exprs = construct_args(c(
-        paste0(".by = ", construct_vec(grouping_cols)),
-        summary_exprs
-      )),
+      summary_exprs = construct_args(
+        c(
+          paste0(".by = ", construct_vec(grouping_cols)),
+          summary_exprs
+        ),
+        always_linebreak = TRUE
+      ),
       grouping_cols = construct_args(grouping_cols)
     )
   } 

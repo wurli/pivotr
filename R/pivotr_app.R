@@ -76,7 +76,7 @@ pivotr_app <- function(x = NULL) {
         add_rank_list(
           input_id = "fields",
           text = "PivotTable Fields",
-          labels = iris |> 
+          labels = ggplot2::mpg |> 
             imap(~ glue::glue("{.y}<{class(.x)[1]}>"))
         )
       )
@@ -90,7 +90,7 @@ pivotr_app <- function(x = NULL) {
           add_rank_list(
             input_id = "fields",
             text = "PivotTable Fields",
-            labels = iris |> 
+            labels = ggplot2::mpg |> 
               imap(~ glue::glue("{.y}<{class(.x)}>"))
           )
         )
@@ -101,7 +101,7 @@ pivotr_app <- function(x = NULL) {
       values <- map(input$values, ~ list(., "sum"))
       
       get_code(
-        iris,
+        ggplot2::mpg,
         filters = NULL,
         rows = input$rows,
         columns = input$columns,
@@ -111,6 +111,7 @@ pivotr_app <- function(x = NULL) {
     
     output$code <- renderText(code())
     output$data <- renderTable(eval(parse(text = code())))
+    
     
     observeEvent(input$values_settings, {
       showModal(modalDialog())

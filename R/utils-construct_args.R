@@ -1,6 +1,7 @@
 construct_args <- function(x, indent = 4L, max_width = 60L, always_linebreak = NULL) {
   out <- paste(x, collapse = ", ")
-  always_linebreak <- always_linebreak %||% nchar(out) > max_width || grepl("\n", out)
+  always_linebreak <- always_linebreak %||% (nchar(out) > max_width || grepl("\n", out))
+  always_linebreak <- always_linebreak && length(x) > 1
   if (always_linebreak) {
     x   <- gsub("\n", paste0("\n", strrep(" ", indent)), x) 
     out <- paste(x, collapse = paste0(",\n", strrep(" ", indent)))
