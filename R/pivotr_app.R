@@ -77,7 +77,7 @@ pivotr_app <- function(x = NULL) {
           input_id = "fields",
           text = "PivotTable Fields",
           labels = iris |> 
-            imap(~ glue::glue("{.y}<{typeof(.x)}>"))
+            imap(~ glue::glue("{.y}<{class(.x)[1]}>"))
         )
       )
     )
@@ -91,7 +91,7 @@ pivotr_app <- function(x = NULL) {
             input_id = "fields",
             text = "PivotTable Fields",
             labels = iris |> 
-              imap(~ glue::glue("{.y}<{typeof(.x)}>"))
+              imap(~ glue::glue("{.y}<{class(.x)}>"))
           )
         )
       )
@@ -109,7 +109,7 @@ pivotr_app <- function(x = NULL) {
       )
     })
     
-    output$code <- renderPrint(code())
+    output$code <- renderText(code())
     output$data <- renderTable(eval(parse(text = code())))
     
     observeEvent(input$values_settings, {

@@ -16,60 +16,76 @@ get_code <- function(x, filters = NULL, columns = ".value", rows = NULL, values 
   
   long_format <- ".value" %in% rows
   
-  grouping_cols_chr <- setdiff(c(rows, columns), ".value")
-  grouping_cols     <- syms(grouping_cols_chr)
-  columns           <- syms(setdiff(columns, ".value"))
-  rows              <- syms(setdiff(rows, ".value"))
+  columns       <- setdiff(columns, ".value")
+  rows          <- setdiff(rows, ".value")
+  grouping_cols <- union(rows, columns)
   
   filters <- filters %||% list(list(cols = NULL, values = NULL))
   values  <- values  %||% list(list(cols = NULL, funs = NULL))
   
-  df_name <- ensym(x)
+  df_name <- as_string(ensym(x))
   
-  abort_cols_dont_exist(x, map(filters, 1), map(values, 1), grouping_cols_chr)
+  abort_cols_dont_exist(x, map(filters, 1), map(values, 1), grouping_cols)
   
-  values <- make_summary_exprs(values)
+  values        <- make_summary_exprs(values)
   summary_exprs <- values$exprs
   new_col_names <- values$new_col_names
   
   step_summary <- if (length(grouping_cols) == 0L) {
-    expr(!!df_name %>% summarise(!!!summary_exprs))
+    glue(
+      "
+      {df_name} |>
+        summarise({summary_exprs})
+      ",
+      summary_exprs = construct_args(summary_exprs)
+    )
   } else {
-    expr(
-      !!df_name %>% 
-        relocate(!!!grouping_cols) %>%
-        arrange(!!!grouping_cols) %>%
-        summarise(
-          .by = c(!!!grouping_cols),
-          !!!summary_exprs
-        )
+    glue(
+      "
+      {df_name} |>
+        summarise({summary_exprs}) |> 
+        arrange({grouping_cols})
+      ",
+      summary_exprs = construct_args(c(
+        paste0(".by = ", construct_vec(grouping_cols)),
+        summary_exprs
+      )),
+      grouping_cols = construct_args(grouping_cols)
     )
   } 
   
   step_pivot_longer <- if (long_format) {
-    expr(
-      pivot_longer(
-        c(!!!syms(new_col_names)),
-        names_to = ".measure",
-        values_to = ".value"
-      )
+    glue(
+      '
+        pivot_longer(
+          {new_col_names},
+          names_to = ".measure",
+          values_to = ".value"
+        )
+      ',
+      new_col_names = construct_vec(new_col_names)
     )
   }
   
   step_pivot_wider <- if (length(columns) > 0) {
-    pivot_wider_vals_from <- if (long_format) list(expr(.value)) else syms(new_col_names)
+    pivot_wider_vals_from <- if (long_format) ".value" else new_col_names
     
-    expr(
-      pivot_wider(
-        names_from = c(!!!columns),
-        values_from = c(!!!pivot_wider_vals_from)
-      )
+    glue(
+      "
+        pivot_wider(
+          names_from = {columns},
+          values_from = {pivot_wider_vals_from}
+        )
+      ",
+      columns = construct_vec(columns),
+      pivot_wider_vals_from = construct_vec(pivot_wider_vals_from)
     )
   } 
   
-  expr <- expr_concat(!!step_summary, !!step_pivot_longer, !!step_pivot_wider)
-  
-  suppressWarnings(styler::style_text(expr_deparse(expr)))
+  paste(
+    c(step_summary, step_pivot_longer, step_pivot_wider), 
+    collapse = " |>\n"
+  )
   
 }
 
@@ -113,56 +129,40 @@ make_summary_exprs <- function(spec, use_function_names = NULL) {
   
   stopifnot(is.null(use_function_names) || is.logical(use_function_names))
   
-  spec <- spec |>
-    compress_summary_spec()
-  
   use_function_names <- use_function_names %||% length(unique(unlist(map(spec, 2)))) > 1
   
   new_col_names <- spec |> 
-    map(\(x) {
-      if (use_function_names) return(x[[1]])
-      do.call(paste, c(sep = "_", expand.grid(x[[1]], x[[2]])))
+    map_chr(\(x) {
+      if (use_function_names) {
+        paste(x[[1]], x[[2]], sep = "_")
+      } else {
+        x[[1]]
+      }
     }) |> 
-    unlist(use.names = FALSE) |> 
     unique() |> 
     sort()
   
-  expr_names <- map_chr(spec, \(x) {
-    if (!all(lengths(x) == 1L)) {
-      return("")
-    } 
-    if (use_function_names) {
-      paste(x, collapse = "_")
-    } else {
-      x[[1]]
-    }
-  })
-  
   exprs <- spec |>
-    set_names(expr_names) |>
+    compress_summary_spec() |> 
     map(function(x) {
       
       if (all(lengths(x) == 1L)) {
-        f <- sym(x[[2]])
-        x <- sym(x[[1]])
-        return(expr((!!f)(!!x)))
+        f <- x[[2]]
+        x <- x[[1]]
+        return(glue("{x} = {f}({x})"))
       }
       
-      cols <- if (length(x[[1]]) == 1L) {
-        sym(x[[1]])
+      cols <- construct_vec(x[[1]], indent = 4L) 
+      funs <- if (!use_function_names) {
+        x[[2]]
       } else {
-        expr(c(!!!syms(x[[1]]))) 
+        glue("list({args})", args = construct_args(glue("{x[[2]]} = {x[[2]]}")))
       }
       
-      funs <- if (length(x[[2]]) == 1L && !use_function_names) {
-        sym(x[[2]])
-      } else {
-        names(x[[2]]) <- x[[2]]
-        expr(list(!!!syms(x[[2]])))
-      }
-      
-      expr(across(!!cols, !!funs))
-      
+      glue(
+        "across({args})",
+        args = construct_args(c(cols, funs))
+      )
     })
   
   list(exprs = exprs, new_col_names = new_col_names)

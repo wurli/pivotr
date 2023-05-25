@@ -9,5 +9,4 @@ get_code(
     list("Sepal.Length", "median")
   )
 ) |> 
-  parse(text = _) |> 
-  eval()
+  cat()
