@@ -4,7 +4,14 @@
 \alias{get_code}
 \title{Title}
 \usage{
-get_code(x, filters = NULL, columns = ".value", rows = NULL, values = NULL)
+get_code(
+  x,
+  x_name = NULL,
+  filters = NULL,
+  columns = ".value",
+  rows = NULL,
+  values = NULL
+)
 }
 \arguments{
 \item{x}{}

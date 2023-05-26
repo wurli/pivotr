@@ -10,9 +10,8 @@
 #' @export
 #'
 #' @examples
-get_code <- function(x, filters = NULL, columns = ".value", rows = NULL, values = NULL) {
-  
-  # stopifnot(".value" %in% c(columns, rows))
+get_code <- function(x, x_name = NULL, 
+                     filters = NULL, columns = ".value", rows = NULL, values = NULL) {
   
   long_format <- ".value" %in% rows
   
@@ -23,7 +22,7 @@ get_code <- function(x, filters = NULL, columns = ".value", rows = NULL, values 
   filters <- filters %||% list(list(cols = NULL, values = NULL))
   values  <- values  %||% list(list(cols = NULL, funs = NULL))
   
-  df_name <- expr_deparse(enexpr(x))
+  df_name <- x_name %||% expr_deparse(enexpr(x))
   
   abort_cols_dont_exist(x, map(filters, 1), map(values, 1), grouping_cols)
   
@@ -31,10 +30,13 @@ get_code <- function(x, filters = NULL, columns = ".value", rows = NULL, values 
   summary_exprs <- values$exprs
   new_col_names <- values$new_col_names
   
+  step_start <- glue("{df_name}")
+  
+  step_as_tibble <- if (!tibble::is_tibble(x)) "  as_tibble()"
+  
   step_summary <- if (length(grouping_cols) == 0L) {
     glue(
       "
-      {df_name} |>
         summarise({summary_exprs})
       ",
       summary_exprs = construct_args(summary_exprs, always_linebreak = TRUE)
@@ -42,7 +44,6 @@ get_code <- function(x, filters = NULL, columns = ".value", rows = NULL, values 
   } else {
     glue(
       "
-      {df_name} |>
         summarise({summary_exprs}) |> 
         arrange({grouping_cols})
       ",
@@ -86,7 +87,7 @@ get_code <- function(x, filters = NULL, columns = ".value", rows = NULL, values 
   } 
   
   paste(
-    c(step_summary, step_pivot_longer, step_pivot_wider), 
+    c(step_start, step_as_tibble, step_summary, step_pivot_longer, step_pivot_wider), 
     collapse = " |>\n"
   )
   

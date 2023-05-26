@@ -1,7 +1,11 @@
 pivotr_app <- function(x = NULL) {
   
+  datasets <- list_datasets()
+  
   ui <- fluidPage(
-    column(1),
+    column(1,
+      selectInput("dataset", "Dataset", names(datasets), selected = "iris")
+    ),
     column(7,
       verbatimTextOutput("code"),
       tableOutput("data")
@@ -9,25 +13,25 @@ pivotr_app <- function(x = NULL) {
     column(4,
       fluidRow(
         column(12,
-          uiOutput("test")
+          uiOutput("fields_bucket")
         )
       ),
       fluidRow(
-        column(6,
+        column(6, style = "padding-right:0px;",
           sortable::bucket_list(
             NULL,
             group_name = "opts",
-            add_rank_list(
+            sortable::add_rank_list(
               "Filters",
               input_id = "filters"
             )
           )
         ),
-        column(6,
+        column(6, style = "padding-left:0px;",
           sortable::bucket_list(
             NULL,
             group_name = "opts",
-            add_rank_list(
+            sortable::add_rank_list(
               "Columns",
               input_id = "columns",
               list(.value = "\U03A3 Value")
@@ -36,21 +40,21 @@ pivotr_app <- function(x = NULL) {
         )
       ),
       fluidRow(
-        column(6,
+        column(6, style = "padding-right:0px;",
           sortable::bucket_list(
             NULL,
             group_name = "opts",
-            add_rank_list(
+            sortable::add_rank_list(
               "Rows",
               input_id = "rows"
             )
           )
         ),
-        column(6,
+        column(6, style = "padding-left:0px;",
           sortable::bucket_list(
             NULL,
             group_name = "opts",
-            add_rank_list(
+            sortable::add_rank_list(
               span(
                 "Values",
                 actionLink(
@@ -69,29 +73,31 @@ pivotr_app <- function(x = NULL) {
   
   server <- function(input, output, session) {
     
-    output$test <- renderUI(
+    datasets <- list_datasets()
+    
+    output$fields_bucket <- renderUI(
       sortable::bucket_list(
         "PivotTable Fields",
         group_name = "opts",
-        add_rank_list(
+        sortable::add_rank_list(
           input_id = "fields",
           text = "PivotTable Fields",
-          labels = ggplot2::economics |> 
-            imap(~ glue::glue("{.y}<{class(.x)[1]}>"))
+          labels = datasets[[input$dataset]] |> 
+            imap(~ glue::glue("{.y}<{vctrs::vec_ptype_abbr(.x)[1]}>"))
         )
       )
     )
     
-    observeEvent(input$fields, {
-      output$test <- renderUI(
+    observeEvent(input$fields_bucket, {
+      output$fields <- renderUI(
         sortable::bucket_list(
           "PivotTable Fields",
           group_name = "opts",
-          add_rank_list(
+          sortable::add_rank_list(
             input_id = "fields",
             text = "PivotTable Fields",
-            labels = ggplot2::economics |> 
-              imap(~ glue::glue("{.y}<{class(.x)}>"))
+            labels = datasets[[input$dataset]] |> 
+              imap(~ glue::glue("{.y}<{vctrs::vec_ptype_abbr(.x)[1]}>"))
           )
         )
       )
@@ -101,7 +107,8 @@ pivotr_app <- function(x = NULL) {
       values <- map(input$values, ~ list(., "sum"))
       
       get_code(
-        ggplot2::economics,
+        datasets[[input$dataset]],
+        input$dataset,
         filters = NULL,
         rows = input$rows,
         columns = input$columns,
