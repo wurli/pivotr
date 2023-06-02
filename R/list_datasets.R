@@ -1,9 +1,20 @@
-list_datasets <- function(package = NULL) {
-  env <- new_environment()
-  dataset_names <- data(package = package)$results[,3]
-  dataset_names <- dataset_names[!grepl("\\s", dataset_names)]
-  data(list = dataset_names, envir = env, package = package)
-  
-  as.list(env) |> 
-    purrr::keep(is.data.frame) 
+list_datasets <- function(package = "datasets") {
+  env <- new.env()
+  datasets <- data(package = package)$results[, 3]
+  datasets <- datasets[!grepl("\\s", datasets)]
+  data(package = package, list = datasets, envir = env)
+  out <- purrr::keep(as.list(env), is.data.frame)
+  out <- out[sort(names(out))]
+  if (package %in% c("datasets", "dplyr", "tidyr")) return(out) 
+  set_names(out, ~ paste0(package, "::", .))
+}
+
+list_packages <- function() {
+  sort(unique(list.files(.libPaths())))
+}
+
+dataset_choices <- function(x) {
+  choices <- as.list(names(x))
+  names(choices) <- sub(".+::", "", choices)
+  choices
 }

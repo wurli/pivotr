@@ -1,8 +1,6 @@
-expr_concat <- function(...) {
-  exprs(...) |> 
-    lapply(expr_deparse) |> 
-    lapply(paste, collapse = " ") |> 
-    Filter(x = _, \(x) x != "NULL") |> 
-    paste(collapse = " %>%\n") |> 
-    parse_expr()
+random_id <- function(length = 16L) {
+  chars <- sample(c(letters, LETTERS, 0:9), size = length, replace = TRUE)
+  paste(chars, collapse = "")
 }
+
+strip_id <- function(x) sub(".+__", "", x)

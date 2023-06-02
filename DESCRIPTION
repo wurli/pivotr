@@ -16,5 +16,6 @@ Imports:
     rlang,
     shiny,
     sortable,
-    tidyr
-RoxygenNote: 7.2.1
+    tidyr,
+    withr
+RoxygenNote: 7.2.3

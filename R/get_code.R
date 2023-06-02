@@ -3,7 +3,7 @@
 #' @param x 
 #' @param filters 
 #' @param columns,rows Character vector of column names, one of which must 
-#'   include the special `".value"`
+#'   include the special `".measure"`
 #' @param values 
 #'
 #' @return
@@ -11,13 +11,12 @@
 #'
 #' @examples
 get_code <- function(x, x_name = NULL, 
-                     filters = NULL, columns = ".value", rows = NULL, values = NULL) {
+                     filters = NULL, columns = ".measure", rows = NULL, values = NULL) {
   
-  long_format <- ".value" %in% rows
+  long_format <- ".measure" %in% rows
   
-  columns       <- setdiff(columns, ".value")
-  rows          <- setdiff(rows, ".value")
-  grouping_cols <- union(rows, columns)
+  columns       <- setdiff(columns, ".measure")
+  grouping_cols <- setdiff(union(rows, columns), ".measure")
   
   filters <- filters %||% list(list(cols = NULL, values = NULL))
   values  <- values  %||% list(list(cols = NULL, funs = NULL))
@@ -44,8 +43,7 @@ get_code <- function(x, x_name = NULL,
   } else {
     glue(
       "
-        summarise({summary_exprs}) |> 
-        arrange({grouping_cols})
+        summarise({summary_exprs})
       ",
       summary_exprs = construct_args(
         c(
@@ -71,6 +69,15 @@ get_code <- function(x, x_name = NULL,
     )
   }
   
+  step_arrange <- if (length(setdiff(rows, ".measure")) > 0L) {
+    glue(
+      "
+        arrange({rows})
+      ",
+      rows = construct_args(rows)
+    )
+  }
+  
   step_pivot_wider <- if (length(columns) > 0) {
     pivot_wider_vals_from <- if (long_format) ".value" else new_col_names
     
@@ -87,7 +94,8 @@ get_code <- function(x, x_name = NULL,
   } 
   
   paste(
-    c(step_start, step_as_tibble, step_summary, step_pivot_longer, step_pivot_wider), 
+    c(step_start, step_as_tibble, step_summary, 
+      step_pivot_longer, step_arrange, step_pivot_wider), 
     collapse = " |>\n"
   )
   
@@ -95,7 +103,7 @@ get_code <- function(x, x_name = NULL,
 
 abort_cols_dont_exist <- function(df, ...) {
   all_cols <- unique(unlist(c(...)))
-  bad_cols <- setdiff(all_cols, c(colnames(df), ".value"))
+  bad_cols <- setdiff(all_cols, c(colnames(df), ".measure"))
   
   if (length(bad_cols) > 0) {
     cli_abort(
@@ -143,29 +151,34 @@ make_summary_exprs <- function(spec, use_function_names = NULL) {
         x[[1]]
       }
     }) |> 
-    unique() |> 
-    sort()
+    unique() 
   
   exprs <- spec |>
     compress_summary_spec() |> 
     map(function(x) {
       
+      fun <- x[[2]]
+      col <- x[[1]]
+      
       if (all(lengths(x) == 1L)) {
-        f <- x[[2]]
-        x <- x[[1]]
-        return(glue("{x} = {f}({x})"))
+        out <- if (use_function_names) {
+          glue("{col}_{fun} = {fun}({col})")
+        } else {
+          glue("{col} = {fun}({col})")
+        }
+        return(out)
       }
       
-      cols <- construct_vec(x[[1]], indent = 4L) 
-      funs <- if (!use_function_names) {
-        x[[2]]
+      cols_exprs <- construct_vec(col, indent = 4L) 
+      funs_exprs <- if (!use_function_names) {
+        fun
       } else {
-        glue("list({args})", args = construct_args(glue("{x[[2]]} = {x[[2]]}")))
+        glue("list({args})", args = construct_args(glue("{fun} = {fun}")))
       }
       
       glue(
         "across({args})",
-        args = construct_args(c(cols, funs))
+        args = construct_args(c(cols_exprs, funs_exprs))
       )
     })
   
@@ -185,7 +198,7 @@ make_summary_exprs <- function(spec, use_function_names = NULL) {
 #' compress_summary_spec(spec)
 compress_summary_spec <- function(spec) {
   spec_by_fun <- split(spec, map_chr(spec, 2)) |> 
-    map(~ list(sort(map_chr(., 1)), .[[1]][[2]])) |> 
+    map(~ list(map_chr(., 1), .[[1]][[2]])) |> 
     unname() |> 
     c() 
   

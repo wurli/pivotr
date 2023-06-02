@@ -8,7 +8,7 @@ get_code(
   x,
   x_name = NULL,
   filters = NULL,
-  columns = ".value",
+  columns = ".measure",
   rows = NULL,
   values = NULL
 )
@@ -19,7 +19,7 @@ get_code(
 \item{filters}{}
 
 \item{columns, rows}{Character vector of column names, one of which must 
-include the special `".value"`}
+include the special `".measure"`}
 
 \item{values}{}
 }
