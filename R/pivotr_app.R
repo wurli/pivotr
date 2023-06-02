@@ -1,3 +1,15 @@
+# TODO:
+# *  Restrict what you can drag and to where. E.g. can currently remove the 'values'
+#    item and not get it back
+# *  More options for summary types 
+# *  Data import
+# *  No errors in the code (e.g. pivot wider no values)
+# *  Rename '.measure' to '.value'?? 
+# *  Code highlighting/copy to clipboard
+# *  Turn off function names in summary?
+# *  Allow abritrary renaming of rows/columns?
+# *  Allow arbitrary sorting of rows/columns?
+# *  Filter??
 pivotr_app <- function(x = NULL) {
   
   pkg_data <- data(package = c("dplyr", "tidyr"))$results[, 3]
