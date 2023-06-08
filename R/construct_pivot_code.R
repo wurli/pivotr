@@ -10,8 +10,14 @@
 #' @export
 #'
 #' @examples
-get_code <- function(x, x_name = NULL, 
-                     filters = NULL, columns = ".measure", rows = NULL, values = NULL) {
+construct_pivot_code <- function(x, x_name = NULL, 
+                                 filters = NULL, 
+                                 columns = ".measure", 
+                                 rows = NULL, 
+                                 values = NULL,
+                                 code_width = 40) {
+  
+  width <- function(code) code_width - nchar(code)
   
   long_format <- ".measure" %in% rows
   
@@ -19,42 +25,50 @@ get_code <- function(x, x_name = NULL,
   grouping_cols <- setdiff(union(rows, columns), ".measure")
   
   filters <- filters %||% list(list(cols = NULL, values = NULL))
-  values  <- values  %||% list(list(cols = NULL, funs = NULL))
+  values  <- values  %||% list()
+  
+  use_dummy_col <- length(values) == 0L && length(columns) > 0L
   
   df_name <- x_name %||% expr_deparse(enexpr(x))
   
-  abort_cols_dont_exist(x, map(filters, 1), map(values, 1), grouping_cols)
+  abort_cols_dont_exist(x, x_name, map(filters, 1), map(values, 1), grouping_cols)
   
-  values        <- make_summary_exprs(values)
+  values        <- make_summary_exprs(values, code_width = code_width)
   summary_exprs <- values$exprs
-  new_col_names <- values$new_col_names
+  new_col_names <- if (use_dummy_col) ".dummy" else values$new_col_names
   
   step_start <- glue("{df_name}")
   
-  step_as_tibble <- if (!tibble::is_tibble(x)) "  as_tibble()"
+  step_as_tibble <- if (!all(class(x) %in% c("tbl_df", "tbl", "data.frame"))) "  as_tibble()"
   
   step_summary <- if (length(grouping_cols) == 0L) {
     glue(
       "
         summarise({summary_exprs})
       ",
-      summary_exprs = construct_args(summary_exprs, always_linebreak = TRUE)
+      summary_exprs = construct_args(
+        summary_exprs, 
+        always_linebreak = TRUE, 
+        backtick = FALSE,
+        max_width = width("  summarise() |>")
+      )
     )
   } else {
+    grouping_expr <- construct_vec(grouping_cols, max_width = width("  .by = c(),"))
     glue(
       "
         summarise({summary_exprs})
       ",
       summary_exprs = construct_args(
-        c(
-          paste0(".by = ", construct_vec(grouping_cols)),
-          summary_exprs
-        ),
-        always_linebreak = TRUE
-      ),
-      grouping_cols = construct_args(grouping_cols)
+        c(paste0(".by = ", grouping_expr), summary_exprs),
+        always_linebreak = TRUE,
+        backtick = FALSE
+      )
+      # grouping_cols = construct_args(grouping_cols, max_width = width(""))
     )
   } 
+  
+  step_dummy_col <- if (use_dummy_col) "  mutate(.dummy = NA)"
   
   step_pivot_longer <- if (long_format) {
     glue(
@@ -65,7 +79,11 @@ get_code <- function(x, x_name = NULL,
           values_to = ".value"
         )
       ',
-      new_col_names = construct_vec(new_col_names)
+      new_col_names = construct_vec(
+        new_col_names, 
+        max_width = width("    ,"), 
+        indent = 6L
+      )
     )
   }
   
@@ -74,7 +92,7 @@ get_code <- function(x, x_name = NULL,
       "
         arrange({rows})
       ",
-      rows = construct_args(rows)
+      rows = construct_args(rows, max_width = width("  arrange() |>"))
     )
   }
   
@@ -88,27 +106,33 @@ get_code <- function(x, x_name = NULL,
           values_from = {pivot_wider_vals_from}
         )
       ",
-      columns = construct_vec(columns),
-      pivot_wider_vals_from = construct_vec(pivot_wider_vals_from)
+      columns = construct_vec(
+        columns, max_width = width("    names_from = ,")
+      ),
+      pivot_wider_vals_from = construct_vec(
+        pivot_wider_vals_from, max_width = width("    values_from = ,")
+      )
     )
   } 
   
   paste(
-    c(step_start, step_as_tibble, step_summary, 
-      step_pivot_longer, step_arrange, step_pivot_wider), 
+    c(step_start, step_as_tibble, step_summary,
+      step_pivot_longer, step_arrange, step_dummy_col, step_pivot_wider), 
     collapse = " |>\n"
   )
   
 }
 
-abort_cols_dont_exist <- function(df, ...) {
+abort_cols_dont_exist <- function(df, df_name, ...) {
   all_cols <- unique(unlist(c(...)))
   bad_cols <- setdiff(all_cols, c(colnames(df), ".measure"))
+  df_name  <- gsub(".+\n", "", df_name)
   
   if (length(bad_cols) > 0) {
     cli_abort(
       c(
         "Columns specified don't exist",
+        i = "Table is {.val {df_name}}",
         i = "Check {.field {bad_cols}}"
       ),
       call = caller_call()
@@ -137,7 +161,9 @@ abort_cols_dont_exist <- function(df, ...) {
 #   list("x3", "f3"),
 #   list("x4", "f4")
 # )
-make_summary_exprs <- function(spec, use_function_names = NULL) {
+make_summary_exprs <- function(spec, use_function_names = NULL, code_width = 60L) {
+  
+  width <- function(code) code_width - nchar(code)
   
   stopifnot(is.null(use_function_names) || is.logical(use_function_names))
   
@@ -169,16 +195,25 @@ make_summary_exprs <- function(spec, use_function_names = NULL) {
         return(out)
       }
       
-      cols_exprs <- construct_vec(col, indent = 4L) 
+      cols_exprs <- construct_vec(col, indent = 2L, max_width = width("      ,")) 
       funs_exprs <- if (!use_function_names) {
         fun
       } else {
-        glue("list({args})", args = construct_args(glue("{fun} = {fun}")))
+        glue("list({args})", args = construct_args(
+          glue("{fun} = {fun}"), 
+          backtick = FALSE,
+          max_width = width("    ,")
+        ))
       }
       
       glue(
         "across({args})",
-        args = construct_args(c(cols_exprs, funs_exprs))
+        args = construct_args(
+          c(cols_exprs, funs_exprs), 
+          backtick = FALSE,
+          max_width = width("    across()"),
+          indent = 2L
+        )
       )
     })
   

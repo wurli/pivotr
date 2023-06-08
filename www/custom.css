@@ -1,0 +1,5 @@
+.rank-list-container.custom-sortable {
+  background-color: #8A8;
+  max-height:200px;
+  overflow-y:auto;
+}

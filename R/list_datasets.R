@@ -1,20 +1,55 @@
-list_datasets <- function(package = "datasets") {
+package_datasets <- function(pkg = c("datasets", "dplyr", "ggplot2", "tidyr")) {
+  pkg <- pkg %||% .packages(TRUE)
+  
+  pkg |> 
+    set_names() |> 
+    map(function(pkg) {
+      pkg |> 
+        tibble_data() |>
+        imap(\(df, name) list(value = df, code = get_dataset_code(pkg, name)))
+    }) |> 
+    purrr::compact()
+  
+}
+
+tibble_data <- function(pkg) {
+  datasets <- data(package = pkg)$results[, "Item"]
+  datasets <- datasets[!grepl("\\s", datasets)] 
+  
   env <- new.env()
-  datasets <- data(package = package)$results[, 3]
-  datasets <- datasets[!grepl("\\s", datasets)]
-  data(package = package, list = datasets, envir = env)
-  out <- purrr::keep(as.list(env), is.data.frame)
-  out <- out[sort(names(out))]
-  if (package %in% c("datasets", "dplyr", "tidyr")) return(out) 
-  set_names(out, ~ paste0(package, "::", .))
+  data(list = datasets, package = pkg, envir = env)
+  out <- purrr::keep(as.list(env), can_be_tibble)
+  if (length(out) == 0L) out else out[order(names(out))]
 }
 
-list_packages <- function() {
-  sort(unique(list.files(.libPaths())))
+can_be_tibble <- function(x) {
+  tryCatch(
+    {
+      as_tibble(x)
+      is.data.frame(x)
+    },
+    error = function(e) FALSE,
+    warning = function(e) FALSE
+  )
 }
 
-dataset_choices <- function(x) {
-  choices <- as.list(names(x))
-  names(choices) <- sub(".+::", "", choices)
-  choices
+get_dataset_code <- function(pkg, dataset) {
+  purrr::map2_chr(pkg, dataset, function(pkg, dataset) {
+    if (pkg %in% c("datasets", "dplyr", "tidyr")) {
+      return(dataset)
+    }
+    tryCatch(
+      {
+        do.call("::", list(pkg, dataset))
+        paste0(pkg, "::", dataset)
+      },
+      error = function(e) {
+        glue('
+        data({dataset}, package = "{pkg}")
+      
+        {dataset}
+        ')
+      }
+    )
+  })
 }
