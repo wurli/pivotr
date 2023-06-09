@@ -53,40 +53,49 @@ pivotr <- function(x = NULL) {
       ),
       div(
         style = "font-size: 0.85em;",
-        verbatimTextOutput("code")
+        card(
+          full_screen = TRUE,
+          htmlOutput("code")
+        )
       )
     ),
     
-    tags$head(tags$style(HTML("
-      .bslib-card, .tab-content, .tab-pane, .card-body {
-        overflow: visible !important;
-      }
+    tags$head(
+      
+      tags$script(src = "prism.js"),
+      tags$link(rel = "stylesheet", type = "text/css", href = "prism.css"),
     
-      .bucket-list-container.fields-list {
-        font-size: 0.95em;
-        padding: 0px !important;
-        margin: 0px !important;
-      }
+      tags$style(HTML("
+        .bslib-card, .tab-content, .tab-pane, .card-body {
+          overflow: visible !important;
+        }
       
-      .rank-list-container.fields-list {
-        height: 350px;
-        overflow-y: auto;
-      }
-      
-      .bucket-list-container.pivot-table-options-list {
-        font-size:0.95em;
-        padding: 0px !important;
-        margin: 0px !important;
-      }
-      
-      .rank-list-container.pivot-table-options-list {
-        min-height:150px;
-      }
-      
-      .default-sortable .rank-list-item {
-        padding: 2px 5px !important;
-      }
-    "))),
+        .bucket-list-container.fields-list {
+          font-size: 0.95em;
+          padding: 0px !important;
+          margin: 0px !important;
+        }
+        
+        .rank-list-container.fields-list {
+          height: 350px;
+          overflow-y: auto;
+        }
+        
+        .bucket-list-container.pivot-table-options-list {
+          font-size:0.95em;
+          padding: 0px !important;
+          margin: 0px !important;
+        }
+        
+        .rank-list-container.pivot-table-options-list {
+          min-height:150px;
+        }
+        
+        .default-sortable .rank-list-item {
+          padding: 2px 5px !important;
+        }
+      "))
+    ),
     
     fluidRow(
       column(7, style = "padding:5px;",
@@ -195,7 +204,7 @@ pivotr <- function(x = NULL) {
       )
     })
     
-    output$code <- renderText(code())
+    output$code <- renderUI(highlight_code(code()))
     output$data <- reactable::renderReactable({
       
       # Load the data into an app-specific environment to avoid polluting
