@@ -11,16 +11,10 @@
 # *  Allow arbitrary sorting of rows/columns?
 # *  Filter??
 
-catch_warnings <- function(..., .msg = "Warning here!") {
-  tryCatch(
-    ..., 
-    warning = function(w) {
-      abort("Warning was here", call = caller_env())
-    }
-  )
-}
-
 pivotr <- function(x = NULL) {
+  
+  resources <- system.file("app/www", package = "pivotr")
+  addResourcePath("www", resources)
   
   user_pkg_datasets <- package_datasets()
   
@@ -30,78 +24,73 @@ pivotr <- function(x = NULL) {
   
   # User code will use data(), but in the app we'll just load data into 
   # `pkg_data_env`. So, overload data() to avoid creating unnecessary objects
-  assign("data", function(...) {}, envir = pkg_data_env)
+  assign("data", function(...) NULL, envir = pkg_data_env)
   
   ui <- page_sidebar(
-    
     theme = bs_theme(5, bootswatch = "cerulean"),
+    title = "{pivotr} - Excel's PivotTables in R",
     
-    title = "{pivotr}",
+    tags$head(
+
+      htmltools::htmlDependency(
+        name = "resources",
+        version = "0.0.1",
+        src = resources,
+        script = list.files(resources, pattern = "\\.js$", recursive = TRUE),
+        package = NULL,
+        all_files = TRUE
+      ),
+
+      map(
+        list.files(resources, pattern = "\\.css$", recursive = TRUE),
+        function(x) tags$link(href = file.path("www", x), rel = "stylesheet")
+      )
+      
+    ),
     
     sidebar = sidebar(
       width = 350,
       navset_card_pill(
         title = "Data",
+        id = "data_selection_tabs",
         height = "280px",
         nav_panel("Package", value = "panel_package_data", icon = icon("cube"), 
           selectInput("package", "Package", names(user_pkg_datasets), selected = "datasets"),
-          selectInput("dataset", "Dataset", names(user_pkg_datasets$datasets), selected = "iris")
+          selectInput("dataset", "Dataset", names(user_pkg_datasets$datasets), selected = "infert")
         ),
-        nav_panel("Upload", value = "panel_user_data", icon = icon("upload"),
-          fileInput("user_data", "Upload data")
+        nav_menu(
+          title = "Import",
+          icon = icon("upload"),
+          nav_panel("From CSV", value = "panel_file_data", icon = icon("upload"),
+            fileInput("user_data.upload", NULL, accept = ".csv")
+          ),
+          nav_panel("From global environment", value = "panel_env_data", icon = icon("table"),
+            selectInput(
+              "user_data.from_env",
+              "Select an object to import",
+              mget(ls(envir = .GlobalEnv), .GlobalEnv) |> 
+                purrr::keep(is.data.frame) |> 
+                names()
+            )
+          )
         )
       ),
-      div(
-        style = "font-size: 0.85em;",
-        card(
-          full_screen = TRUE,
-          htmlOutput("code")
-        )
+      with_corner_buttons(
+        htmlOutput("code"),
+        corner_button("code_clipboard", "clipboard", "Copy code to clipboard"),
+        corner_button("code_settings", "cog", "Code settings")
       )
-    ),
-    
-    tags$head(
-      
-      tags$script(src = "prism.js"),
-      tags$link(rel = "stylesheet", type = "text/css", href = "prism.css"),
-    
-      tags$style(HTML("
-        .bslib-card, .tab-content, .tab-pane, .card-body {
-          overflow: visible !important;
-        }
-      
-        .bucket-list-container.fields-list {
-          font-size: 0.95em;
-          padding: 0px !important;
-          margin: 0px !important;
-        }
-        
-        .rank-list-container.fields-list {
-          height: 350px;
-          overflow-y: auto;
-        }
-        
-        .bucket-list-container.pivot-table-options-list {
-          font-size:0.95em;
-          padding: 0px !important;
-          margin: 0px !important;
-        }
-        
-        .rank-list-container.pivot-table-options-list {
-          min-height:150px;
-        }
-        
-        .default-sortable .rank-list-item {
-          padding: 2px 5px !important;
-        }
-      "))
     ),
     
     fluidRow(
       column(7, style = "padding:5px;",
-        reactable::reactableOutput("data")
+        card(
+          full_screen = TRUE,
+          reactable::reactableOutput("data")
+        )
       ),
       column(5, style = "padding:5px;",
+        h4("PivotTable Fields"),
         fluidRow(column(12,
           uiOutput("fields_bucket")
         )),
@@ -113,6 +102,10 @@ pivotr <- function(x = NULL) {
   )
   
   server <- function(input, output, session) {
+    
+    bindEvent(input$code_clipboard, x = observe({
+      shiny::showNotification("yo!")
+    }))
     
     summary_spec <- reactiveVal(list())
     datasets     <- reactive(list_datasets(input$package))
@@ -131,8 +124,44 @@ pivotr <- function(x = NULL) {
       freeze_inputs("fields", "filters", "columns", "rows", "values")
     }))
     
-    dataset      <- reactive(user_pkg_datasets[[input$package]][[input$dataset]]$value)
-    dataset_code <- reactive(user_pkg_datasets[[input$package]][[input$dataset]]$code)
+    dataset           <- reactiveVal(isolate(user_pkg_datasets[[input$package]][[input$dataset]]$value))
+    dataset_code      <- reactiveVal(isolate(user_pkg_datasets[[input$package]][[input$dataset]]$code))
+    user_dataset      <- reactiveVal()
+    user_dataset_code <- reactiveVal()
+    
+    bindEvent(input$package, input$dataset, input$data_selection_tabs, x = observe({
+      if (input$data_selection_tabs == "panel_package_data") {
+        dataset(user_pkg_datasets[[input$package]][[input$dataset]]$value)
+        dataset_code(user_pkg_datasets[[input$package]][[input$dataset]]$code) 
+      }
+      
+      if (input$data_selection_tabs == "panel_file_data" && !is.null(user_dataset())) {
+        freeze_inputs("fields", "filters", "columns", "rows", "values")
+        dataset(user_dataset())
+        dataset_code(user_dataset_code())
+      } 
+      
+    }))
+    
+    bindEvent(input$user_data.upload, x = observe({
+      freeze_inputs("fields", "filters", "columns", "rows", "values")
+      imported_dataset <- readr::read_csv(
+        input$user_data.upload$datapath, 
+        progress = FALSE, show_col_types = FALSE
+      )
+      assign("dataset", imported_dataset, envir = pkg_data_env)
+      user_dataset(imported_dataset)
+      user_dataset_code(glue(
+        '# dataset <- readr::read_csv("{name}")\n\ndataset',
+        name = input$user_data.upload$name
+      ))
+      dataset(user_dataset())
+      dataset_code(user_dataset_code())
+    }))
+    
+    
+    # dataset      <- reactive(user_pkg_datasets[[input$package]][[input$dataset]]$value)
+    # dataset_code <- reactive(user_pkg_datasets[[input$package]][[input$dataset]]$code)
     
     bindEvent(dataset(), x = observe({
       output$pivot_table_fields_ui <- renderUI(pivot_table_fields_ui())
@@ -143,7 +172,7 @@ pivotr <- function(x = NULL) {
         output$fields_bucket <- renderUI({
           
           sortable::bucket_list(
-            "PivotTable Fields",
+            NULL, #"PivotTable Fields",
             group_name = "opts",
             sortable::add_rank_list(
               input_id = "fields",
@@ -199,12 +228,19 @@ pivotr <- function(x = NULL) {
           rows = input$rows |> strip_id(),
           columns = input$columns |> strip_id(),
           values = values(),
-          code_width = 40
+          code_width         = input$code_controls.code_width %||% 40,
+          pipe               = input$code_controls.pipe %||% "base",
+          use_function_names = input$code_controls.use_function_names %||% "sometimes",
+          use_across         = input$code_controls.use_across %||% "sometimes"
         )
       )
     })
     
-    output$code <- renderUI(highlight_code(code()))
+    # Need two code outputs - one for sidebar and one for settings modal
+    code_ui           <- reactive(highlight_code(code()))
+    output$code       <- renderUI(code_ui())
+    output$model_code <- renderUI(code_ui())
+    
     output$data <- reactable::renderReactable({
       
       # Load the data into an app-specific environment to avoid polluting
@@ -225,15 +261,58 @@ pivotr <- function(x = NULL) {
         compact = TRUE,
         pagination = FALSE,
         sortable = FALSE,
-        height = 550,
+        height = 680,
         resizable = TRUE
       )
       
     })
     
+    bindEvent(input$code_settings, x = observe({
+      showModal(modalDialog(
+        easyClose = TRUE,
+        title = "PivotTable Code",
+        size = "xl",
+        fluidRow(
+          column(3, sliderInput(
+            inputId = "code_controls.code_width",
+            label = "Code width",
+            value = input$code_controls.code_width %||% 40,
+            min = 20,
+            max = 250,
+            step = 20
+          )),
+          column(3, radioButtons(
+            "code_controls.use_across",
+            label = span("Use", shiny::code("across()")),
+            selected = input$code_controls.use_across %||% "sometimes",
+            choices = c(Never = "never", Sometimes = "sometimes", Always = "always"),
+            inline = TRUE
+          )),
+          column(3, radioButtons(
+            "code_controls.pipe",
+            label = "Pipe version",
+            selected = input$code_controls.pipe %||% "base",
+            choiceNames = list(HTML("Base <code>|></code>"), HTML("{magrittr} <code>%>%</code>")),
+            choiceValues = c("base", "magrittr"),
+            inline = TRUE
+          )),
+          column(3, radioButtons(
+            "code_controls.use_function_names",
+            label = "Include summary function in column names",
+            selected = input$code_controls.use_function_names %||% "sometimes",
+            choices = c(`When necessary` = "sometimes", Always = "always"),
+            inline = TRUE
+          ))
+        ),
+        htmlOutput("model_code")
+      ))
+    }))
+    
     bindEvent(input$values_settings, x = observe({
       showModal(modalDialog(
         
+        title = "Value settings",
+        size = "xl",
         easyClose = length(input$values) == 0L,
         
         fluidRow(column(12,
@@ -314,22 +393,18 @@ pivot_table_fields_ui <- function() {
         )
       ),
       column(6, style = "padding-left:0px;",
-        sortable::bucket_list(
-          NULL,
-          group_name = "opts",
-          sortable::add_rank_list(
-            # as.character |> HTML because title should be character
-            HTML(as.character(span(
+        with_corner_buttons(
+          corner_button("values_settings", "cog", style = "right:-20px;"),
+          sortable::bucket_list(
+            NULL,
+            group_name = "opts",
+            sortable::add_rank_list(
               "Values",
-              actionLink(
-                "values_settings", icon("cog"),
-                style = "float:right;padding-right:10px"
-              )
-            ))),
-            input_id = "values"
-          ),
-          class = "default-sortable pivot-table-options-list"
-        ) 
+              input_id = "values"
+            ),
+            class = "default-sortable pivot-table-options-list"
+          ) 
+        )
       )
     )
   )

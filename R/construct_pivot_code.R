@@ -15,9 +15,17 @@ construct_pivot_code <- function(x, x_name = NULL,
                                  columns = ".measure", 
                                  rows = NULL, 
                                  values = NULL,
-                                 code_width = 40) {
+                                 code_width = 40,
+                                 pipe = c("base", "magrittr"),
+                                 use_function_names = c("sometimes", "never", "always"),
+                                 use_across = c("sometimes", "never", "always")) {
   
-  width <- function(code) code_width - nchar(code)
+  use_across         <- match.arg(use_across)
+  use_function_names <- match.arg(use_function_names)
+  pipe               <- match.arg(pipe)
+  pipe               <- switch(pipe, base = "|>", magrittr = "%>%")
+  
+  width <- function(code) code_width - nchar(glue(code, envir = parent.frame()))
   
   long_format <- ".measure" %in% rows
   
@@ -33,7 +41,7 @@ construct_pivot_code <- function(x, x_name = NULL,
   
   abort_cols_dont_exist(x, x_name, map(filters, 1), map(values, 1), grouping_cols)
   
-  values        <- make_summary_exprs(values, code_width = code_width)
+  values        <- make_summary_exprs(values, code_width, use_function_names, use_across)
   summary_exprs <- values$exprs
   new_col_names <- if (use_dummy_col) ".dummy" else values$new_col_names
   
@@ -50,7 +58,7 @@ construct_pivot_code <- function(x, x_name = NULL,
         summary_exprs, 
         always_linebreak = TRUE, 
         backtick = FALSE,
-        max_width = width("  summarise() |>")
+        max_width = width("  summarise() {pipe}")
       )
     )
   } else {
@@ -92,7 +100,7 @@ construct_pivot_code <- function(x, x_name = NULL,
       "
         arrange({rows})
       ",
-      rows = construct_args(rows, max_width = width("  arrange() |>"))
+      rows = construct_args(rows, max_width = width("  arrange() {pipe}"))
     )
   }
   
@@ -118,7 +126,7 @@ construct_pivot_code <- function(x, x_name = NULL,
   paste(
     c(step_start, step_as_tibble, step_summary,
       step_pivot_longer, step_arrange, step_dummy_col, step_pivot_wider), 
-    collapse = " |>\n"
+    collapse = paste0(" ", pipe, "\n")
   )
   
 }
@@ -161,13 +169,21 @@ abort_cols_dont_exist <- function(df, df_name, ...) {
 #   list("x3", "f3"),
 #   list("x4", "f4")
 # )
-make_summary_exprs <- function(spec, use_function_names = NULL, code_width = 60L) {
+make_summary_exprs <- function(spec, code_width = 60L, use_function_names = NULL, use_across = "sometimes") {
   
   width <- function(code) code_width - nchar(code)
   
-  stopifnot(is.null(use_function_names) || is.logical(use_function_names))
+  use_function_names <- switch(use_function_names,
+    always = TRUE,
+    never = FALSE,
+    sometimes = length(unique(unlist(map(spec, 2)))) > 1
+  )
   
-  use_function_names <- use_function_names %||% length(unique(unlist(map(spec, 2)))) > 1
+  use_across <- switch(use_across,
+    always = TRUE,
+    never = FALSE,
+    sometimes = NULL
+  )
   
   new_col_names <- spec |> 
     map_chr(\(x) {
@@ -186,10 +202,15 @@ make_summary_exprs <- function(spec, use_function_names = NULL, code_width = 60L
       fun <- x[[2]]
       col <- x[[1]]
       
-      if (all(lengths(x) == 1L)) {
+      use_across <- use_across %||% any(lengths(x) > 1L)
+      
+      if (!use_across) {
         out <- if (use_function_names) {
-          glue("{col}_{fun} = {fun}({col})")
+          name <- maybe_backtick(paste0(col, "_", fun))
+          col <- maybe_backtick(col)
+          glue("{name} = {fun}({col})")
         } else {
+          col <- maybe_backtick(col)
           glue("{col} = {fun}({col})")
         }
         return(out)
@@ -215,7 +236,8 @@ make_summary_exprs <- function(spec, use_function_names = NULL, code_width = 60L
           indent = 2L
         )
       )
-    })
+    }) |> 
+    unlist(use.names = FALSE)
   
   list(exprs = exprs, new_col_names = new_col_names)
   

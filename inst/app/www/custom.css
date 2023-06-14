@@ -1,5 +1,55 @@
-.rank-list-container.custom-sortable {
-  background-color: #8A8;
-  max-height:200px;
-  overflow-y:auto;
+.bslib-card, .tab-content, .tab-pane, .card-body {
+  overflow: visible !important;
+}
+
+.bucket-list-container.fields-list {
+  font-size: 0.95em;
+  padding: 0px !important;
+  margin: 0px !important;
+}
+
+.rank-list-container.fields-list {
+  height: 350px;
+  overflow-y: auto;
+}
+
+.bucket-list-container.pivot-table-options-list {
+  font-size:0.95em;
+  padding: 0px !important;
+  margin: 0px !important;
+}
+
+.rank-list-container.pivot-table-options-list {
+  min-height:150px;
+}
+
+.default-sortable .rank-list-item {
+  padding: 2px 5px !important;
+}
+
+.corner-buttons-wrapper {
+  position: relative;
+}
+
+.corner-button {
+  position: absolute;
+  top: 0px;
+  font-size: 1.1em;;
+  margin: 15px;
+  z-index: 900;
+  width: 10px;
+  height: 10px;
+  padding: 0; 
+  background-color: transparent;
+  opacity: .7;
+  background-repeat: no-repeat;
+  border: none;
+  cursor: pointer;
+  caret-color: transparent;
+  vertical-align: top;
+  color: black;
+}
+
+.corner-button:hover {
+  opacity: 1;
 }

@@ -2,7 +2,7 @@ test_that("construct_pivot_code() works", {
   
   expect_snapshot({
     test <- function(width) {
-      cat(construct_pivot_code(
+      construct_pivot_code(
         x = dplyr::storms,
         x_name = "dplyr::storms",
         columns = "status",
@@ -13,12 +13,12 @@ test_that("construct_pivot_code() works", {
           list("tropicalstorm_force_diameter", "sum")
         ),
         code_width = width
-      ))
+      )
     }
     
-    test(5)
-    test(40)
-    test(120)
+    cat(test(5))
+    cat(test(40))
+    cat(test(120))
     
   })
 })

@@ -1,16 +1,18 @@
 Package: pivotr
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Excel's PivotTables implemented in shiny and dplyr/tidyr
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Author: person("Jacob", "Scott", email = "jscott2718@gmail.com")
+Maintainer: person("Jacob", "Scott", email = "jscott2718@gmail.com")
+Description: Perform data manipulations using a UI heavily inspired by Excel's
+    PivotTables, then copy the code for those manipulations back into R.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports: 
+    bslib (>= 0.5.0),
     cli,
+    dplyr (>= 0.1.0),
     glue,
     memoise,
     purrr,
