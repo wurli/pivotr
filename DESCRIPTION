@@ -17,10 +17,11 @@ Imports:
     memoise,
     purrr,
     rclipboard,
-    rlang,
-    shiny,
+    reactable (>= 0.4.4),
+    rlang (>= 1.1.0),
+    shiny (>= 1.7.4),
     sortable,
-    tidyr,
+    tidyr (>= 1.2.0),
     withr
 RoxygenNote: 7.2.3
 Suggests: 
