@@ -16,6 +16,7 @@ Imports:
     glue,
     memoise,
     purrr,
+    rclipboard,
     rlang,
     shiny,
     sortable,

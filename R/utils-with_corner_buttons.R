@@ -36,17 +36,35 @@ corner_button <- function(inputId, icon, tooltip = NULL, ...) {
     icon <- shiny::icon(icon)
   }
   
-  out <- tags$button(
+  as_corner_button(tags$button(
     class = "action-button corner-button",
     title = tooltip,
     type = "button",
     id = inputId,
     icon,
     ...
-  )
-  
-  class(out) <- c("corner_button", class(out))
-  out
+  ))
+}
+
+corner_button_clipboard <- function(inputId, text, modal = FALSE, 
+                                    icon = "clipboard", 
+                                    tooltip = "Copy to clipboard", ...) {
+  as_corner_button(rclipboard::rclipButton(
+    inputId = inputId,
+    label = NULL,
+    clipText = text,
+    icon = shiny::icon(icon),
+    title = tooltip,
+    class = "action-button corner-button",
+    style = "color:black;",
+    modal = modal,
+    ...
+  ))
+}
+
+as_corner_button <- function(x) {
+  class(x) <- c("corner_button", class(x))
+  x
 }
 
 is_corner_button <- function(x) {

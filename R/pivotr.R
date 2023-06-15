@@ -30,6 +30,8 @@ pivotr <- function(x = NULL) {
     theme = bs_theme(5, bootswatch = "cerulean"),
     title = "{pivotr} - Excel's PivotTables in R",
     
+    rclipboard::rclipboardSetup(),
+    
     tags$head(
 
       htmltools::htmlDependency(
@@ -65,21 +67,21 @@ pivotr <- function(x = NULL) {
             fileInput("user_data.upload", NULL, accept = ".csv")
           ),
           nav_panel("From global environment", value = "panel_env_data", icon = icon("table"),
-            selectInput(
+            selectizeInput(
               "user_data.from_env",
               "Select an object to import",
-              mget(ls(envir = .GlobalEnv), .GlobalEnv) |> 
+              options = list(
+                placeholder = 'Select a dataset',
+                onInitialize = I('function() { this.setValue(""); }')
+              ),
+              choices = mget(ls(envir = .GlobalEnv), .GlobalEnv) |> 
                 purrr::keep(is.data.frame) |> 
                 names()
             )
           )
         )
       ),
-      with_corner_buttons(
-        htmlOutput("code"),
-        corner_button("code_clipboard", "clipboard", "Copy code to clipboard"),
-        corner_button("code_settings", "cog", "Code settings")
-      )
+      htmlOutput("code")
     ),
     
     fluidRow(
@@ -103,8 +105,11 @@ pivotr <- function(x = NULL) {
   
   server <- function(input, output, session) {
     
-    bindEvent(input$code_clipboard, x = observe({
-      shiny::showNotification("yo!")
+    bindEvent(input$code_clipboard, ignoreInit = TRUE, x = observe({
+      shiny::showNotification("Code added to clipboard", duration = 3)
+    }))
+    bindEvent(input$code_clipboard_modal, ignoreInit = TRUE, x = observe({
+      shiny::showNotification("Code added to clipboard", duration = 3)
     }))
     
     summary_spec <- reactiveVal(list())
@@ -126,20 +131,29 @@ pivotr <- function(x = NULL) {
     
     dataset           <- reactiveVal(isolate(user_pkg_datasets[[input$package]][[input$dataset]]$value))
     dataset_code      <- reactiveVal(isolate(user_pkg_datasets[[input$package]][[input$dataset]]$code))
-    user_dataset      <- reactiveVal()
-    user_dataset_code <- reactiveVal()
+    file_dataset      <- reactiveVal()
+    file_dataset_code <- reactiveVal()
+    env_dataset       <- reactiveVal()
+    env_dataset_code  <- reactiveVal() 
     
-    bindEvent(input$package, input$dataset, input$data_selection_tabs, x = observe({
+    bindEvent(input$package, input$dataset, input$data_selection_tabs, ignoreInit = TRUE, x = observe({
       if (input$data_selection_tabs == "panel_package_data") {
+        freeze_inputs("fields", "filters", "columns", "rows", "values")
         dataset(user_pkg_datasets[[input$package]][[input$dataset]]$value)
         dataset_code(user_pkg_datasets[[input$package]][[input$dataset]]$code) 
       }
       
-      if (input$data_selection_tabs == "panel_file_data" && !is.null(user_dataset())) {
+      if (input$data_selection_tabs == "panel_file_data" && !is.null(file_dataset())) {
         freeze_inputs("fields", "filters", "columns", "rows", "values")
-        dataset(user_dataset())
-        dataset_code(user_dataset_code())
+        dataset(file_dataset())
+        dataset_code(file_dataset_code())
       } 
+      
+      if (input$data_selection_tabs == "panel_env_data" && !is.null(env_dataset())) {
+        freeze_inputs("fields", "filters", "columns", "rows", "values")
+        dataset(env_dataset())
+        dataset_code(env_dataset_code())
+      }
       
     }))
     
@@ -150,18 +164,25 @@ pivotr <- function(x = NULL) {
         progress = FALSE, show_col_types = FALSE
       )
       assign("dataset", imported_dataset, envir = pkg_data_env)
-      user_dataset(imported_dataset)
-      user_dataset_code(glue(
+      file_dataset(imported_dataset)
+      file_dataset_code(glue(
         '# dataset <- readr::read_csv("{name}")\n\ndataset',
         name = input$user_data.upload$name
       ))
-      dataset(user_dataset())
-      dataset_code(user_dataset_code())
+      dataset(file_dataset())
+      dataset_code(file_dataset_code())
     }))
     
-    
-    # dataset      <- reactive(user_pkg_datasets[[input$package]][[input$dataset]]$value)
-    # dataset_code <- reactive(user_pkg_datasets[[input$package]][[input$dataset]]$code)
+    bindEvent(input$user_data.from_env, ignoreInit = TRUE, x = observe({
+      freeze_inputs("fields", "filters", "columns", "rows", "values")
+      dataset_name <- input$user_data.from_env
+      data_from_env <- get(dataset_name, envir = .GlobalEnv)
+      assign(dataset_name, data_from_env, envir = pkg_data_env)
+      env_dataset(data_from_env)
+      env_dataset_code(dataset_name)
+      dataset(env_dataset())
+      dataset_code(env_dataset_code())
+    }))
     
     bindEvent(dataset(), x = observe({
       output$pivot_table_fields_ui <- renderUI(pivot_table_fields_ui())
@@ -238,8 +259,19 @@ pivotr <- function(x = NULL) {
     
     # Need two code outputs - one for sidebar and one for settings modal
     code_ui           <- reactive(highlight_code(code()))
-    output$code       <- renderUI(code_ui())
-    output$model_code <- renderUI(code_ui())
+    output$code       <- renderUI(
+      with_corner_buttons(
+        code_ui(),
+        corner_button_clipboard("code_clipboard", code()),
+        corner_button("code_settings", "cog", "Code settings")
+      )
+    )
+    output$model_code <- renderUI(
+      with_corner_buttons(
+        code_ui(),
+        corner_button_clipboard("code_clipboard_modal", code(), modal = TRUE)
+      )
+    )
     
     output$data <- reactable::renderReactable({
       
@@ -321,13 +353,12 @@ pivotr <- function(x = NULL) {
           } else {
             map(input$values, function(val) {
               div(
-                hr(),
                 h4(shiny::code(strip_id(val))),
                 radioButtons(
                   inputId = val,
                   label = "Summary function",
                   choices = if (is.numeric(dataset()[[strip_id(val)]])) {
-                    c("sum", "mean", "median", "length", "n_distinct")
+                    c("sum", "mean", "median", "min", "max", "length", "n_distinct")
                   } else {
                     c("length", "n_distinct", "first", "last")
                   },
