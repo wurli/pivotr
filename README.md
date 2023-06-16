@@ -12,6 +12,8 @@ your R script 💫
 pak::pak("wurli/pivotr")
 ```
 
+Once installed, launch the GUI using `pivotr::pivotr()`.
+
 ## Demo
 
 ![](demo.gif)
