@@ -37,7 +37,7 @@ corner_button <- function(inputId, icon, tooltip = NULL, ...) {
   }
   
   as_corner_button(tags$button(
-    class = "action-button corner-button",
+    class = "btn action-button corner-button",
     title = tooltip,
     type = "button",
     id = inputId,
@@ -49,17 +49,34 @@ corner_button <- function(inputId, icon, tooltip = NULL, ...) {
 corner_button_clipboard <- function(inputId, text, modal = FALSE, 
                                     icon = "clipboard", 
                                     tooltip = "Copy to clipboard", ...) {
-  as_corner_button(rclipboard::rclipButton(
-    inputId = inputId,
-    label = NULL,
-    clipText = text,
-    icon = shiny::icon(icon),
-    title = tooltip,
-    class = "action-button corner-button",
-    style = "color:black;",
-    modal = modal,
-    ...
+  # as_corner_button(rclipboard::rclipButton(
+  #   inputId = inputId,
+  #   label = NULL,
+  #   clipText = text,
+  #   icon = shiny::icon(icon),
+  #   title = tooltip,
+  #   class = "action-button corner-button",
+  #   style = "color:black;",
+  #   modal = modal,
+  #   ...
+  # ))
+  as_corner_button(tagList(
+    corner_button(
+      title = tooltip,
+      inputId = inputId,
+      `data-clipboard-text` = text,
+      icon = icon,
+      ...
+    ),
+    tags$script(glue(
+      ifelse(
+        modal, 
+        'new ClipboardJS(".btn", {{ container: document.getElementById(\"{inputId}\") }});', 
+        'new ClipboardJS(".btn", document.getElementById("{inputId}"));'
+      )
+    ))
   ))
+
 }
 
 as_corner_button <- function(x) {
