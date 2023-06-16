@@ -1,15 +1,18 @@
-#' Title
+#' Construct the dplyr code used for the PivotTable
 #'
-#' @param x 
-#' @param filters 
-#' @param columns,rows Character vector of column names, one of which must 
-#'   include the special `".measure"`
-#' @param values 
+#' @param x A dataframe
+#' @param x_name The name/code that represents `x`
+#' @param filters A list of filter expressions
+#' @param columns,rows Column names to use for the rows/columns PivotTable fields
+#' @param values A list of values expressions
+#' @param code_width Number of characters to display per line
+#' @param pipe Either `"base"` or `"magrittr"`
+#' @param use_function_names Whether to indicate the summary function in the
+#'   output column names
+#' @param use_across Whether to use `dplyr::across()`
 #'
-#' @return
-#' @export
-#'
-#' @examples
+#' @return A string
+#' @noRd
 construct_pivot_code <- function(x, x_name = NULL, 
                                  filters = NULL, 
                                  columns = ".measure", 
@@ -62,7 +65,7 @@ construct_pivot_code <- function(x, x_name = NULL,
       )
     )
   } else {
-    grouping_expr <- construct_vec(grouping_cols, max_width = width("  .by = c(),"))
+    grouping_expr <- construct_vec(grouping_cols, max_width = width("  .by = c(),"), indent = 2L)
     glue(
       "
         summarise({summary_exprs})
@@ -72,7 +75,6 @@ construct_pivot_code <- function(x, x_name = NULL,
         always_linebreak = TRUE,
         backtick = FALSE
       )
-      # grouping_cols = construct_args(grouping_cols, max_width = width(""))
     )
   } 
   
@@ -93,6 +95,18 @@ construct_pivot_code <- function(x, x_name = NULL,
         indent = 6L
       )
     )
+  }
+  
+  step_relocate <- if (length(rows) > 0 && rows[length(rows)] != ".measure") {
+    if (rows[1] == ".measure") {
+      "  relocate(.measure)"
+    } else {
+      glue(
+        "  relocate(.measure, .after = {prev})", 
+        prev = rows[which(rows == ".measure") - 1L],
+        .trim = FALSE
+      )
+    }
   }
   
   step_arrange <- if (length(setdiff(rows, ".measure")) > 0L) {
@@ -124,8 +138,9 @@ construct_pivot_code <- function(x, x_name = NULL,
   } 
   
   paste(
-    c(step_start, step_as_tibble, step_summary,
-      step_pivot_longer, step_arrange, step_dummy_col, step_pivot_wider), 
+    c(step_start, step_as_tibble, step_summary, step_pivot_longer, 
+      step_relocate, step_arrange, 
+      step_dummy_col, step_pivot_wider), 
     collapse = paste0(" ", pipe, "\n")
   )
   
@@ -243,16 +258,16 @@ make_summary_exprs <- function(spec, code_width = 60L, use_function_names = NULL
   
 }
 
-#' @examples
-#' spec <- list(
-#'   list("x1", "f2"),
-#'   list("x2", "f2"),
-#'   list("x1", "f1"),
-#'   list("x2", "f3"),
-#'   list("x2", "f1"),
-#'   list("x3", "f3")
-#' )
-#' compress_summary_spec(spec)
+# @examples
+# spec <- list(
+#   list("x1", "f2"),
+#   list("x2", "f2"),
+#   list("x1", "f1"),
+#   list("x2", "f3"),
+#   list("x2", "f1"),
+#   list("x3", "f3")
+# )
+# compress_summary_spec(spec)
 compress_summary_spec <- function(spec) {
   spec_by_fun <- split(spec, map_chr(spec, 2)) |> 
     map(~ list(map_chr(., 1), .[[1]][[2]])) |> 

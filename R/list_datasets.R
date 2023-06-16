@@ -1,4 +1,4 @@
-package_datasets <- function(pkg = c("datasets", "dplyr", "ggplot2", "tidyr")) {
+package_datasets <- function(pkg = NULL) {
   pkg <- pkg %||% .packages(TRUE)
   
   pkg |> 

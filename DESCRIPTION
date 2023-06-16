@@ -2,8 +2,7 @@ Package: pivotr
 Type: Package
 Title: Excel's PivotTables implemented in shiny and dplyr/tidyr
 Version: 0.1.0
-Author: person("Jacob", "Scott", email = "jscott2718@gmail.com")
-Maintainer: person("Jacob", "Scott", email = "jscott2718@gmail.com")
+Authors@R: person("Jacob", "Scott", email = "jscott2718@gmail.com", role = c("aut", "cre"))
 Description: Perform data manipulations using a UI heavily inspired by Excel's
     PivotTables, then copy the code for those manipulations back into R.
 License: MIT + file LICENSE

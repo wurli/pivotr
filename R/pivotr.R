@@ -2,16 +2,19 @@
 # *  Restrict what you can drag and to where. E.g. can currently remove the 'values'
 #    item and not get it back
 # *  More options for summary types 
-# *  Data import
-# *  No errors in the code (e.g. pivot wider no values)
-# *  Rename '.measure' to '.value'?? 
-# *  Code highlighting/copy to clipboard
-# *  Turn off function names in summary?
 # *  Allow abritrary renaming of rows/columns?
 # *  Allow arbitrary sorting of rows/columns?
 # *  Filter??
 
-pivotr <- function(x = NULL) {
+#' Run the {pivotr} app
+#'
+#' This brings up a GUI similar to Excel's PivotTable interface. Data 
+#' manipulations will be performed and the dplyr/tidyr code used will be
+#' displayed.
+#'
+#' @return An object that represents the app
+#' @export
+pivotr <- function() {
   
   resources <- system.file("app/www", package = "pivotr")
   addResourcePath("www", resources)
@@ -249,7 +252,7 @@ pivotr <- function(x = NULL) {
           rows = input$rows |> strip_id(),
           columns = input$columns |> strip_id(),
           values = values(),
-          code_width         = input$code_controls.code_width %||% 40,
+          code_width         = input$code_controls.code_width %||% 80,
           pipe               = input$code_controls.pipe %||% "base",
           use_function_names = input$code_controls.use_function_names %||% "sometimes",
           use_across         = input$code_controls.use_across %||% "sometimes"
@@ -282,7 +285,7 @@ pivotr <- function(x = NULL) {
       df <- eval(parse(text = code()), envir = pkg_data_env)
       
       if (ncol(df) == 0L) {
-        df <- tibble::tibble(`-` = integer())
+        df <- tibble(`-` = integer())
       }
       
       reactable::reactable(
