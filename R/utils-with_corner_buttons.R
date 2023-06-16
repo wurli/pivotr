@@ -68,13 +68,11 @@ corner_button_clipboard <- function(inputId, text, modal = FALSE,
       icon = icon,
       ...
     ),
-    tags$script(glue(
-      ifelse(
-        modal, 
-        'new ClipboardJS(".btn", {{ container: document.getElementById(\"{inputId}\") }});', 
-        'new ClipboardJS(".btn", document.getElementById("{inputId}"));'
-      )
-    ))
+    tags$script(glue(ifelse(
+      modal, 
+      'new ClipboardJS(".btn", {{ container: document.getElementById(\"{inputId}\") }});', 
+      'new ClipboardJS(".btn", document.getElementById("{inputId}"));'
+    )))
   ))
 
 }
