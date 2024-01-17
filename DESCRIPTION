@@ -13,15 +13,18 @@ Imports:
     cli,
     dplyr (>= 0.1.0),
     glue,
-    memoise,
+    htmltools,
     purrr,
     rclipboard,
     reactable (>= 0.4.4),
+    readr,
     rlang (>= 1.1.0),
     shiny (>= 1.7.4),
     sortable,
+    tibble,
     tidyr (>= 1.2.0),
-    withr
+    vctrs,
+    zeallot
 RoxygenNote: 7.2.3
 Suggests: 
     testthat (>= 3.0.0)
