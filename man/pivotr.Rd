@@ -7,10 +7,11 @@
 pivotr()
 }
 \value{
-An object that represents the app
+An object that represents the app. Printing the object or passing it 
+ to [shiny::runApp()] will run the app.
 }
 \description{
-This brings up a GUI similar to Excel's PivotTable interface. Data 
-manipulations will be performed and the dplyr/tidyr code used will be
-displayed.
+This brings up a GUI similar to Excel's PivotTable interface. The 
+dplyr/tidyr code used to achieve the data transformations can be copied
+for modification/programmatic use.
 }

@@ -138,9 +138,14 @@ construct_pivot_code <- function(x, x_name = NULL,
   } 
   
   paste(
-    c(step_start, step_as_tibble, step_summary, step_pivot_longer, 
-      step_relocate, step_arrange, 
-      step_dummy_col, step_pivot_wider), 
+    c(step_start, 
+      step_as_tibble,
+      step_summary,
+      step_pivot_longer, 
+      step_relocate,
+      step_arrange, 
+      step_dummy_col,
+      step_pivot_wider), 
     collapse = paste0(" ", pipe, "\n")
   )
   
