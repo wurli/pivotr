@@ -52,11 +52,11 @@ selectDataServer <- function(id, pkg_data_env, user_pkg_datasets, freeze_pivotta
     # Update dataset options depending on selected package
     bindEvent(input$package, ignoreInit = TRUE, x = observe({
       freeze_pivottable()
-      freezeReactiveValue(input, "dataset")
       updateSelectInput(
         inputId = "dataset", 
         choices = names(user_pkg_datasets[[input$package]])
       )
+      freezeReactiveValue(input, "dataset")
     }))
     
     bindEvent(input$dataset, ignoreInit = TRUE, x = observe({

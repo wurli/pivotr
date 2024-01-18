@@ -3,8 +3,8 @@ utils::globalVariables(c(
   "columns", 
   "dataset", 
   "dataset_code", 
-  "dataset_pkg",
   "dataset_name", 
+  "dataset_pkg",
   "rows", 
   "values"
 ))
