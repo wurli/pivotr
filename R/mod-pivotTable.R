@@ -12,7 +12,17 @@ pivotTableUI <- function(id) {
       fluidRow(column(12,
         uiOutput(ns("fields_bucket"))
       )),
-      uiOutput(ns("pivot_table_fields_ui"))
+      fluidRow(
+        column(6, style = "padding-right:0px;", uiOutput(ns("filters_ui"))),
+        column(6, style = "padding-left:0px;", uiOutput(ns("columns_ui")))
+      ),
+      fluidRow(
+        column(6, style = "padding-right:0px;", uiOutput(ns("rows_ui"))),
+        column(6, style = "padding-left:0px;", with_corner_buttons(
+          corner_button(ns("values_settings"), "cog", style = "right:-20px;"),
+          uiOutput(ns("values_ui"))
+        ))
+      )
     )
   )
 }
@@ -37,61 +47,64 @@ pivotTableServer <- function(id, dataset, dataset_name, dataset_pkg, code, pkg_d
     
     ns <- NS(id)
     
+    .measure_field <- list(.measure = "\U03A3 Value")
+    
+    opts_panel <- function(name, id, labels = NULL, class = "pivot-table-options-list") {
+      sortable::bucket_list(NULL,
+        group_name = "opts", # Means items can be dragged between buckets
+        sortable::add_rank_list(name, input_id = id, labels = labels),
+        class = paste("default-sortable", class)
+      )
+    }
+    
+    make_fields <- function(x) {
+      x |> 
+        imap(function(x, y) {
+          ptype <- paste0("&lt", vctrs::vec_ptype_abbr(x), "&gt")
+          HTML(glue::glue('<span style="color:grey;">{ptype}</span>{y}'))
+        }) |>
+        # Long story short, it's hard to track where different cols get
+        # dragged to without using unique identifiers for each item
+        set_names(~ paste0(random_id(), "__", .))
+    }
+    
     # -- Re-render pivot table opts whenever a new dataset is selected ---------
     bindEvent(dataset(), x = observe({
-      output$pivot_table_fields_ui <- renderUI({
-        opts_panel <- function(name, id, ...) {
-          sortable::bucket_list(NULL,
-            group_name = "opts", # Means items can be dragged between buckets
-            sortable::add_rank_list(name, input_id = id, ...),
-            class = "default-sortable pivot-table-options-list"
-          )
-        }
-        
-        list(
-          fluidRow(
-            column(6, style = "padding-right:0px;", opts_panel("Filters", ns("filters"))),
-            column(6, style = "padding-left:0px;",
-              opts_panel("Columns", ns("columns"), list(.measure = "\U03A3 Value"))
-            )
-          ),
-          fluidRow(
-            column(6, style = "padding-right:0px;", opts_panel("Rows", ns("rows"))),
-            column(6, style = "padding-left:0px;", with_corner_buttons(
-              corner_button("values_settings", "cog", style = "right:-20px;"),
-              opts_panel("Values", ns("values"))
-            ))
-          )
-        )
-      })
+      output$filters_ui <- renderUI(opts_panel("Filters", ns("filters")))
+      output$columns_ui <- renderUI(opts_panel("Columns", ns("columns"), labels = .measure_field))
+      output$rows_ui    <- renderUI(opts_panel("Rows", ns("rows")))
+      output$values_ui  <- renderUI(opts_panel("Values", ns("values")))
     }))
    
     # -- 'Pivot Table Fields' bucket ------------------------------------------- 
     bindEvent(input$fields, ignoreNULL = FALSE, x = observe({
+      print(dataset())
+      # 'measure' gets destroyed when dragged into 'Fields', so just put it back
+      # in 'Columns'
+      if (".measure" %in% input$fields) {
+        output$columns_ui <- renderUI(opts_panel(
+          "Columns", ns("columns"), 
+          labels = c(
+            .measure_field,
+            dataset() |> 
+              select(any_of(map_chr(input$columns, strip_id))) |> 
+              make_fields()
+          ) |> print()
+        ))
+      }
+       
       # Whenever a field is dragged to a new panel, re-render so the field
       # gets re-added to the 'Pivot Table Fields' bucket
       if (length(input$fields) != ncol(dataset())) {
-        output$fields_bucket <- renderUI({
-          sortable::bucket_list(NULL, 
-            group_name = "opts",
-            sortable::add_rank_list(
-              input_id = ns("fields"),
-              text = NULL,
-              labels = dataset() |> 
-                imap(function(x, y) {
-                  ptype <- paste0("&lt", vctrs::vec_ptype_abbr(x), "&gt")
-                  HTML(glue::glue('<span style="color:grey;">{ptype}</span>{y}'))
-                }) |>
-                # Long story short, it's hard to track where different cols get
-                # dragged to without using unique identifiers for each item
-                set_names(~ paste0(random_id(), "__", .)),
-            ),
-            class = "default-sortable fields-list"
-          )
-        })
+        output$fields_bucket <- renderUI(opts_panel(
+          NULL, ns("fields"), 
+          labels = make_fields(dataset()), 
+          class = "fields-list"
+        ))
       }
     }))
     
+    # Used to generate pivottable code
     values <- bindEvent(input$values, input$update_functions, x = reactive({
       input$values |>
         map(function(id) {
