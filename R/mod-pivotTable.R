@@ -57,7 +57,7 @@ pivotTableServer <- function(id, dataset, dataset_name, dataset_pkg, code, pkg_d
       )
     }
     
-    make_fields <- function(x) {
+    make_fields <- function(x, preexisting = NULL) {
       x |> 
         imap(function(x, y) {
           ptype <- paste0("&lt", vctrs::vec_ptype_abbr(x), "&gt")
@@ -75,24 +75,23 @@ pivotTableServer <- function(id, dataset, dataset_name, dataset_pkg, code, pkg_d
       output$rows_ui    <- renderUI(opts_panel("Rows", ns("rows")))
       output$values_ui  <- renderUI(opts_panel("Values", ns("values")))
     }))
-   
+    
     # -- 'Pivot Table Fields' bucket ------------------------------------------- 
     bindEvent(input$fields, ignoreNULL = FALSE, x = observe({
-      print(dataset())
       # 'measure' gets destroyed when dragged into 'Fields', so just put it back
       # in 'Columns'
       if (".measure" %in% input$fields) {
         output$columns_ui <- renderUI(opts_panel(
-          "Columns", ns("columns"), 
+          "Columns", ns("columns"),
           labels = c(
             .measure_field,
             dataset() |> 
-              select(any_of(map_chr(input$columns, strip_id))) |> 
+              select(any_of(map_chr(isolate(input$columns), strip_id))) |> 
               make_fields()
-          ) |> print()
+          )
         ))
       }
-       
+      
       # Whenever a field is dragged to a new panel, re-render so the field
       # gets re-added to the 'Pivot Table Fields' bucket
       if (length(input$fields) != ncol(dataset())) {
