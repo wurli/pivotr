@@ -6,7 +6,7 @@ your R script 💫
 
 ## Installation
 
-{pivotr} can be installed from GitHub as follows:
+{pivotr} can be installed from GitHub using [{pak}](https://pak.r-lib.org):
 
 ``` r
 pak::pak("wurli/pivotr")
