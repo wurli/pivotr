@@ -8,6 +8,8 @@ Description: Perform data manipulations using a UI heavily inspired by Excel's
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
+URL: https://github.com/wurli/pivotr
+BugReports: https://github.com/wurli/pivotr/issues
 Imports: 
     bslib (>= 0.5.0),
     cli,
