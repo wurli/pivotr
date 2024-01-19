@@ -20,16 +20,13 @@ pivotr <- function() {
   user_pkg_datasets <- package_datasets()
   shinyApp(
     pivotr_ui(resources, user_pkg_datasets), 
-    pivotr_server(resources, user_pkg_datasets)
+    pivotr_server(user_pkg_datasets)
   )
 }
 
 
-pivotr_server <- function(resources, user_pkg_datasets) {
+pivotr_server <- function(user_pkg_datasets) {
   function(input, output, session) {
-    
-    addResourcePath("www", resources)
-    
     # -- Package datasets ------------------------------------------------------
     # Datasets loaded from packages are bound in this environment as the user
     # accesses them. This is to avoid polluting the global namespace.
